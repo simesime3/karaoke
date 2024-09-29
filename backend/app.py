@@ -4,6 +4,8 @@ import requests
 import openai
 import os
 from dotenv import load_dotenv
+import sqlite3
+
 
 # 変更
 # .envファイルから環境変数をロード
@@ -37,6 +39,43 @@ def get_spotify_access_token():
     
     auth_response_data = auth_response.json()
     return auth_response_data['access_token']
+
+def get_db_connection():
+    conn = sqlite3.connect('karaoke.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+@app.route('/register-performance', methods=['POST'])
+def register_performance():
+    data = request.get_json()
+    print("Received Data:", data)
+    
+    person_id = data.get('person_id')
+    song_id = data.get('song_id')
+    
+    if not person_id or not song_id:
+        return jsonify({'error': 'Missing person_id or song_id'}), 400
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # トランザクションを開始
+        cur.execute('BEGIN TRANSACTION')
+        # print(person_id)
+        cur.execute('INSERT INTO performances (person_id, song_id) VALUES (?, ?)', (person_id, song_id))
+        
+        # コミットして変更を保存
+        conn.commit()
+    except sqlite3.Error as e:
+        print("SQLite error:", e)  # エラーを出力
+        conn.rollback()  # エラーが発生した場合はロールバック
+        return jsonify({'error': 'Failed to register performance'}), 500
+    finally:
+        conn.close()
+
+    return jsonify({'message': 'Performance registered successfully'}), 201
+
 
 # Spotify APIを使って曲を検索する関数
 @app.route('/search', methods=['GET'])
@@ -72,6 +111,7 @@ def search_tracks():
     results = []
     for item in data['tracks']['items']:
         results.append({
+            'id': item['id'],  # Spotifyのtrack IDを追加
             'title': item['name'],
             'artist': item['artists'][0]['name'],
             'image_url': item['album']['images'][0]['url'],
