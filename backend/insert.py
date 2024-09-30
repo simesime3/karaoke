@@ -7,10 +7,14 @@ conn = sqlite3.connect('karaoke.db')
 cursor = conn.cursor()
 
 # peopleテーブルにデータを挿入
-cursor.execute("INSERT INTO people (name, age, email) VALUES (?, ?, ?)", ('Taro', 25, 'taro@example.com'))
+cursor.execute("INSERT INTO people (name, age, email) VALUES (?, ?, ?)", ('Taro', 25, 'Hanaco@example.com'))
+cursor.execute("INSERT INTO people (name, age, email) VALUES (?, ?, ?)", ('Hanaco', 25, 'Hanaco@example.com'))
 
 # songsテーブルにデータを挿入
-cursor.execute("INSERT INTO songs (title, artist) VALUES (?, ?)", ('Song Title 1', 'Artist 1'))
+cursor.execute("INSERT INTO songs (song_id, title, artist) VALUES (?, ?, ?)", ('01IZAuQsBO00iLKFO9LsFf', '愛を伝えたいだとか', 'Aimyon'))
+
+# performancesテーブルにデータを挿入
+cursor.execute("INSERT INTO performances (person_id, song_id) VALUES (?, ?)", (1, '01IZAuQsBO00iLKFO9LsFf'))
 
 # コミットして変更を保存
 conn.commit()
@@ -19,4 +23,3 @@ conn.commit()
 conn.close()
 
 print("データが挿入されました")
-

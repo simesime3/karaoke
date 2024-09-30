@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
 
 export default function Home() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [selectedPerson, setSelectedPerson] = useState('1'); // デフォルトで Taro を選択
+  const [people, setPeople] = useState([]);
+  const [performances, setPerformances] = useState([]);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -24,10 +27,12 @@ export default function Home() {
   };
 
   // 曲の登録を行う関数
-  const registerPerformance = async (songId) => {
+  const registerPerformance = async (songId, title, artist) => {
     const requestBody = {
       person_id: selectedPerson,  // 人のIDをフロントエンドから送信
-      song_id: songId,  // 曲のIDを送信
+      song_id: songId,            // 曲のIDを送信
+      title: title,               // 曲のタイトルを送信
+      artist: artist              // アーティスト名を送信  
     };
   
     console.log('Request Body:', requestBody);  // デバッグ用にリクエストボディをログ出力
@@ -51,6 +56,27 @@ export default function Home() {
       alert('Error registering performance. Please try again later.');
     }
   };
+
+  // personの情報を取得
+  useEffect(() => {
+    // Peopleの一覧を取得する
+    const fetchPeople = async () => {
+      const res = await fetch('http://localhost:5000/people');
+      const data = await res.json();
+      setPeople(data);
+    };
+
+    fetchPeople();
+  }, []);
+
+  // パフォーマンスを取得する関数
+  const fetchPerformances = async (personId) => {
+    const res = await fetch(`http://localhost:5000/performances/${personId}`);
+    const data = await res.json();
+    console.log('Performances:', data);  // ここでデータが取れているか確認
+    setPerformances(data);
+    setSelectedPerson(personId);  // 選択された人を記憶する
+  };
   
 
   return (
@@ -66,6 +92,34 @@ export default function Home() {
         />
         <button type="submit">Search</button>
       </form>
+
+      <h1>Karaoke Performance Tracker</h1>
+
+      {/* Peopleのリスト表示 */}
+      <h2>People</h2>
+      <ul>
+        {people.map((person) => (
+          <li key={person.id}>
+            <button onClick={() => fetchPerformances(person.id)}>
+              {person.name} ({person.age}歳)
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {/* Performancesのリスト表示 */}
+      {selectedPerson && (
+        <>
+          <h2>Performances for Person {selectedPerson}</h2>
+          <ul>
+            {performances.map((performance, index) => (
+              <li key={index}>
+                {performance.title} by {performance.artist} on {performance.date}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       {/* 検索結果表示 */}
       {results.length > 0 && (
@@ -95,7 +149,10 @@ export default function Home() {
                 </div>
 
                 {/* 登録ボタン */}
-                <button onClick={() => registerPerformance(track.id)}>Register Performance</button>
+                <button onClick={() => registerPerformance(track.id, track.title, track.artist)}>
+                  Register Performance
+                </button>
+
               </li>
             ))}
           </ul>

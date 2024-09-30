@@ -1,44 +1,47 @@
 import sqlite3
 
-# データベースの作成（ファイルが存在しない場合、自動的に作成される）
-conn = sqlite3.connect('karaoke.db')
+def create_db():
+    # データベースに接続（存在しない場合は作成される）
+    conn = sqlite3.connect('karaoke.db')
+    cursor = conn.cursor()
 
-# カーソルを取得
-cur = conn.cursor()
+    # people テーブルを作成
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS people (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            age INTEGER,  -- 年齢を格納するカラム
+            email TEXT NOT NULL
+        )
+    ''')
 
-# 人の情報を保存するテーブルを作成
-cur.execute('''
-    CREATE TABLE IF NOT EXISTS people (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        age INTEGER,
-        email TEXT
-    )
-''')
+    # songs テーブルを作成
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS songs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            song_id TEXT NOT NULL,  -- Spotifyの曲IDを格納
+            title TEXT NOT NULL,
+            artist TEXT
+        )
+    ''')
 
-# 歌の情報を保存するテーブルを作成
-cur.execute('''
-    CREATE TABLE IF NOT EXISTS songs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        artist TEXT
-    )
-''')
+    # performances テーブルを作成
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS performances (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER,
+            song_id TEXT,
+            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(person_id) REFERENCES people(id),
+            FOREIGN KEY(song_id) REFERENCES songs(song_id)
+        )
+    ''')
 
-# 人と歌の紐付け（パフォーマンス）を保存するテーブルを作成
-cur.execute('''
-    CREATE TABLE IF NOT EXISTS performances (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        person_id INTEGER,
-        song_id INTEGER,
-        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(person_id) REFERENCES people(id),
-        FOREIGN KEY(song_id) REFERENCES songs(id)
-    )
-''')
+    # コミットして変更を保存
+    conn.commit()
+    # 接続を閉じる
+    conn.close()
 
-# 変更を保存して接続を閉じる
-conn.commit()
-conn.close()
-
-print("Database and tables created successfully.")
+if __name__ == '__main__':
+    create_db()
+    print("データベースが作成されました")

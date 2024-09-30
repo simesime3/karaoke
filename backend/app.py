@@ -47,34 +47,46 @@ def get_db_connection():
 
 @app.route('/register-performance', methods=['POST'])
 def register_performance():
-    data = request.get_json()
-    print("Received Data:", data)
-    
-    person_id = data.get('person_id')
-    song_id = data.get('song_id')
-    
-    if not person_id or not song_id:
-        return jsonify({'error': 'Missing person_id or song_id'}), 400
-
     try:
+        print(request.get_json())
+        data = request.get_json()
+        person_id = data['person_id']
+        song_id = data['song_id']  # ここで受け取るのはSpotifyのsong_id
+        title = data.get('title')   # 曲のタイトルを受け取る
+        artist = data.get('artist')  # アーティスト名を受け取る
+
+
+        # データベースに接続
         conn = get_db_connection()
         cur = conn.cursor()
-        
-        # トランザクションを開始
-        cur.execute('BEGIN TRANSACTION')
-        # print(person_id)
+
+        # songs テーブルから song_id を確認
+        cur.execute('SELECT * FROM songs WHERE song_id = ?', (song_id,))
+        song = cur.fetchone()
+        print(song)
+
+        # 曲が存在しない場合、新しく追加する
+        if not song:
+            # title = 'なし'
+            # artist = 'なし'
+            cur.execute('INSERT INTO songs (song_id, title, artist) VALUES (?, ?, ?)', (song_id, title, artist))
+            # cur.execute('INSERT INTO songs (song_id) VALUES (?)', (song_id))
+            conn.commit()  # 曲情報をコミットして保存
+            print(f"Added new song: {song_id}")
+
+        # performances テーブルに挿入
         cur.execute('INSERT INTO performances (person_id, song_id) VALUES (?, ?)', (person_id, song_id))
-        
+
         # コミットして変更を保存
         conn.commit()
-    except sqlite3.Error as e:
-        print("SQLite error:", e)  # エラーを出力
-        conn.rollback()  # エラーが発生した場合はロールバック
-        return jsonify({'error': 'Failed to register performance'}), 500
-    finally:
-        conn.close()
 
-    return jsonify({'message': 'Performance registered successfully'}), 201
+        return jsonify({'message': 'Performance registered successfully'}), 201
+
+    except sqlite3.Error as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()  # 最後に接続を閉じる
+
 
 
 # Spotify APIを使って曲を検索する関数
@@ -119,6 +131,73 @@ def search_tracks():
         })
 
     return jsonify(results)
+
+# people テーブルからデータ取得
+@app.route('/people', methods=['GET'])
+def get_people():
+    try:
+        # データベースに接続
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # people テーブルから全てのレコードを取得
+        cur.execute('SELECT * FROM people')
+        rows = cur.fetchall()
+
+        # 結果をリストに変換
+        people = []
+        for row in rows:
+            people.append({
+                'id': row['id'],
+                'name': row['name'],
+                'email': row['email']
+                # 必要に応じて他のフィールドも追加
+            })
+
+        return jsonify(people), 200
+
+    except sqlite3.Error as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()  # 最後に接続を閉じる
+
+# 登録した曲を確認
+@app.route('/performances/<int:person_id>', methods=['GET'])
+def get_performances(person_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # person_id に基づいて performances テーブルからデータを取得
+        cur.execute('''
+            SELECT performances.id, performances.song_id, performances.date, songs.title, songs.artist
+            FROM performances
+            JOIN songs ON performances.song_id = songs.song_id
+            WHERE performances.person_id = ?
+        ''', (person_id,))
+        
+        performances = cur.fetchall()
+
+        # 結果をリストに変換
+        result = []
+        for performance in performances:
+            result.append({
+                'id': performance['id'],
+                'song_id': performance['song_id'],
+                'date': performance['date'],
+                'title': performance['title'],
+                'artist': performance['artist']
+            })
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
